@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.util.*;
 
@@ -156,7 +157,7 @@ public class CrawlerServiceImpl implements CrawlerService {
                 counter++;
                 visited.add(currentURL);
                 todos.remove(currentURL);
-            } catch (HttpStatusException e) {
+            } catch (HttpStatusException | SocketTimeoutException e) {
                 queue.add(currentURL);
             } catch (IOException e) {
                 throw new RuntimeException(e);

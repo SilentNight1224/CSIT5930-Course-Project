@@ -40,7 +40,11 @@ public class Search {
     public InitResult init() {
         log.info("init");
         crawlerService.init(Config.CRAWLER_ROOT_URL, Config.CRAWLER_MAX_PAGES);
-        crawlerService.crawl();
-        return InitResult.success();
+        try {
+            crawlerService.crawl();
+            return InitResult.success();
+        } catch (Exception e) {
+            return InitResult.error(e.getMessage());
+        }
     }
 }
