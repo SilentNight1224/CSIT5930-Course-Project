@@ -9,4 +9,8 @@ public class Config {
 
     public static final int INDEX_HEAD_TOKEN_WEIGHT = 2;
 
+    public static final String AI_SUMMARY_PROMPT = """
+          Summarize the following webpage content into **one to two paragraphs** and format the result using **valid HTML**.\s
+          Output **only plain text** without Markdown syntax, code blocks, or additional explanations.\s
+          """;
 }

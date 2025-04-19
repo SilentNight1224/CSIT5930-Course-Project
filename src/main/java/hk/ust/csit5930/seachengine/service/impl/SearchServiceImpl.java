@@ -2,6 +2,7 @@ package hk.ust.csit5930.seachengine.service.impl;
 
 import hk.ust.csit5930.seachengine.db.ForwardIndex;
 import hk.ust.csit5930.seachengine.entity.DocumentRecord;
+import hk.ust.csit5930.seachengine.entity.SearchItem;
 import hk.ust.csit5930.seachengine.entity.SearchResult;
 import hk.ust.csit5930.seachengine.entity.SuggestResult;
 import hk.ust.csit5930.seachengine.service.IndexerService;
@@ -29,8 +30,8 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public List<SearchResult> search(String query) {
-        log.info("Searching for {}", query);
+    public SearchResult search(String query) {
+        log.info("search for {}", query);
         List<String> queryTokens = WordsUtils.extractWords(query).stream()
                 .filter(stopStemService::tokenValidatedFilter)
                 .filter(stopStemService::stopWordFilter)
@@ -47,13 +48,48 @@ public class SearchServiceImpl implements SearchService {
         for (String queryToken : queryTokens) {
             queryFreq.merge(queryToken, 1, Integer::sum);
         }
+        SearchResult result = internalSearch(getQueryVector(queryFreq));
+        result.setProcessedQuery(String.join(" ", queryTokens));
+        return result;
+    }
+
+    @Override
+    public SearchResult searchWithVector(Map<String, Double> queryWithFreq) {
+        log.info("searchWithVector for {}", queryWithFreq);
+        Map<String, Double> queryFreq = queryWithFreq.entrySet().stream()
+                .filter(e -> stopStemService.tokenValidatedFilter(e.getKey()))
+                .collect(Collectors.toMap(
+                        e -> stopStemService.stemMapper(e.getKey()),
+                        Map.Entry::getValue));
+        if (queryFreq.isEmpty()) {
+            queryFreq = queryWithFreq;
+        }
+        double maxFreq = queryFreq.values().stream().max(Double::compare).orElse(1.0);
+        queryFreq = queryFreq.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue() / maxFreq));
+        log.info("Normalized query vector: {}", queryFreq);
+        SearchResult result = internalSearch(queryFreq);
+        result.setProcessedQuery(queryFreq.entrySet().stream()
+                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+                .limit(5)
+                .map(entry -> String.format("%s(%.2f)", entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining(" ")));
+        return result;
+    }
+
+    private SearchResult internalSearch(Map<String, Double> queryFreq) {
         Set<Integer> relatedDocs = indexerService.getRelatedDocs(queryFreq.keySet());
         Map<Integer, Double> similarities = getSimilarity(relatedDocs, queryFreq);
-        return similarities.entrySet().stream()
+        List<SearchItem> results = similarities.entrySet().stream()
                 .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
                 .limit(50)
                 .map(entry -> convertToSearchResult(entry.getKey(), entry.getValue()))
                 .toList();
+        return SearchResult.builder()
+                .results(results)
+                .build();
     }
 
     @Override
@@ -61,9 +97,9 @@ public class SearchServiceImpl implements SearchService {
         return List.of();
     }
 
-    public Map<Integer, Double> getSimilarity(Set<Integer> docs, Map<String, Integer> query) {
+    public Map<Integer, Double> getSimilarity(Set<Integer> docs, Map<String, Double> queryVector) {
         Map<Integer, Map<String, Double>> docsVector = getDocVectors(docs);
-        Map<String, Double> queryVector = getQueryVector(query);
+        // Map<String, Double> queryVector = getQueryVector(query);
         Map<Integer, Double> similarities = new HashMap<>();
         for (Integer doc: docs) {
             Map<String, Double> docVector = docsVector.get(doc);
@@ -114,7 +150,7 @@ public class SearchServiceImpl implements SearchService {
         return product / (len1 * len2);
     }
 
-    public SearchResult convertToSearchResult(Integer docId, Double score) {
+    public SearchItem convertToSearchResult(Integer docId, Double score) {
         DocumentRecord record = forwardIndex.get(docId);
         List<String> keywords = forwardIndex.getNormalizedTF(docId).entrySet().stream()
                 .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
@@ -131,7 +167,7 @@ public class SearchServiceImpl implements SearchService {
                 .limit(5)
                 .map(id -> forwardIndex.get(id).getUrl())
                 .toList();
-        return SearchResult.builder()
+        return SearchItem.builder()
                 .docId(docId)
                 .score(score)
                 .title(record.getTitle())

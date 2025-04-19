@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://www.thymeleaf.org/">
+<head>
+    <!--/*@thymesVar id="title" type="java.lang.String"*/-->
+    <title th:text="${originalQuery}+' - Search Engine'">Search Engine</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="search.svg" type="image/x-icon">
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <script src="bootstrap.bundle.min.js"></script>
+    <script src="scripts.js"></script>
+    <style>
+        .form-control:focus {
+            border-color: #000000;
+            box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
+    </style>
+</head>
+
+<body>
+<div class="container-fluid sticky-top bg-white shadow-sm">
+    <div class="container h-100 justify-content-start">
+        <div class="d-flex h-100 justify-content-start">
+            <div class="text-nowrap me-3 p-3 align-content-center fw-bold fs-5 font-monospace" id="brand">Search Engine</div>
+            <div class="flex-grow-1 d-flex justify-content-end align-content-center rounded-pill border border-1 my-2" >
+                <input class="flex-grow-1 form-control border-0 rounded-pill ps-4"
+                        type="text" id="search-input" placeholder="Enter keywords..." th:value="${processedQuery}"/>
+                <button id="search-button" class="btn rounded-pill" onclick="search()">
+                    <img aria-hidden="true" alt="search-icon" src="search.svg"/>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mb-3" style="width: 648px">
+    <div class="card mt-3" th:each="searchItem:${data}">
+        <!--/*@thymesVar id="searchItem" type="hk.ust.csit5930.seachengine.entity.SearchItem"*/-->
+        <div class="card-body">
+            <a class="h5 text-truncate" th:href="${searchItem.url}" th:text="${searchItem.title}">Title</a>
+            <div class="small text-truncate text-secondary" th:text="${searchItem.url}">URL</div>
+            <div class="small text-secondary mt-2">
+                <div th:text="'Score: '+${#numbers.formatDecimal(searchItem.score,1,10)}">Score:</div>
+                <div th:text="'Last Modified: '+${#dates.format(searchItem.lastModified, 'yyyy-MM-dd HH:mm')}+' | Size: '+${searchItem.size}">Last Modified: | Size: </div>
+                <div th:text="'Keywords: '+${#strings.listJoin(searchItem.keywords,' ')}">Keywords: </div>
+                <div>Parents:</div>
+                <div th:if="${searchItem.parents} == null" class="fst-italic">NULL</div>
+                <div th:if="${searchItem.parents} != null" th:each="parent:${searchItem.parents}">
+                    <a th:text="${parent}" th:href="${parent}">Parent URL</a>
+                </div>
+                <div>Children:</div>
+                <div th:if="${searchItem.children} == null" class="fst-italic">NULL</div>
+                <div th:if="${searchItem.children} != null" th:each="child:${searchItem.children}">
+                    <a th:text="${child}" th:href="${child}">Child URL</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-sm btn-outline-dark me-1" th:attr="onclick=|performSearch('${#strings.listJoin(searchItem.keywords,' ')}')|">Similar pages</button>
+                <button class="btn btn-sm btn-outline-primary" th:attr="onclick=|getSummary('${searchItem.url}')|">AI Summary</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="aiSummaryModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="clearModalLabel">AI Summary</h1>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center" id="aiModalLoading">
+                    <div class="spinner-border text-primary" role="status" aria-hidden="true">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="ms-3">AI is processing the web page. This may take a while.</div>
+                </div>
+                <div id="aiModalContent" class="d-none">
+                    AI Summary Content
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a class="btn btn-primary" id="aiModalOpen" target="_blank">Open</a>
+                <button type="button" class="btn btn-secondary" id="aiModalClose">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('search-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') search();
+    });
+    document.getElementById('brand').addEventListener('click', function () {
+        window.location.href = "/index.html";
+    })
+</script>
+
+</body>
+</html>
